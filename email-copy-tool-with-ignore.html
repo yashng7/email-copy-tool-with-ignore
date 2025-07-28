@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Copy Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .copied {
+            animation: pulse 0.5s ease-in-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">📧 Email Copy Tool</h1>
+            
+            <div class="mb-6">
+                <label for="emailInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    Paste comma-separated emails:
+                </label>
+                <textarea 
+                    id="emailInput" 
+                    placeholder="email1@example.com, email2@example.com, email3@example.com"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows="3"
+                ></textarea>
+            </div>
+
+            <div class="mb-6">
+                <label for="ignoreInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    Email to ignore (will be filtered out):
+                </label>
+                <input 
+                    type="email" 
+                    id="ignoreInput" 
+                    value="support@tangentia.com"
+                    placeholder="Enter email to ignore"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                />
+                <p class="text-xs text-gray-500 mt-1">Any emails matching this will be automatically removed from the list</p>
+            </div>
+
+            <button 
+                id="processBtn"
+                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+            >
+                Process Emails
+            </button>
+
+            <div id="emailList" class="space-y-2 mt-6"></div>
+            
+            <div id="stats" class="mt-6 p-4 bg-gray-100 rounded-md hidden">
+                <div class="flex justify-between text-sm text-gray-600 mb-4">
+                    <span>Total: <span id="totalCount">0</span></span>
+                    <span>Copied: <span id="copiedCount">0</span></span>
+                    <span>Remaining: <span id="remainingCount">0</span></span>
+                    <span class="text-red-600">Ignored: <span id="ignoredCount">0</span></span>
+                </div>
+                <div class="flex gap-3">
+                    <button 
+                        id="copyAllBtn" 
+                        class="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors font-medium text-sm"
+                    >
+                        Copy All Remaining
+                    </button>
+                    <button 
+                        id="resetBtn" 
+                        class="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors font-medium text-sm"
+                    >
+                        Reset All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let emails = [];
+        let copiedEmails = new Set();
+        let ignoredEmails = [];
+
+        const emailInput = document.getElementById('emailInput');
+        const ignoreInput = document.getElementById('ignoreInput');
+        const processBtn = document.getElementById('processBtn');
+        const emailList = document.getElementById('emailList');
+        const stats = document.getElementById('stats');
+        const totalCount = document.getElementById('totalCount');
+        const copiedCount = document.getElementById('copiedCount');
+        const remainingCount = document.getElementById('remainingCount');
+        const ignoredCount = document.getElementById('ignoredCount');
+        const copyAllBtn = document.getElementById('copyAllBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function processEmails() {
+            const input = emailInput.value.trim();
+            if (!input) {
+                return;
+            }
+
+            const ignoreEmail = ignoreInput.value.trim().toLowerCase();
+
+            // Split by comma and clean up
+            const allEmails = input.split(',')
+                .map(email => email.trim())
+                .filter(email => email && isValidEmail(email));
+
+            if (allEmails.length === 0) {
+                return;
+            }
+
+            // Separate ignored emails from valid emails
+            ignoredEmails = [];
+            emails = [];
+
+            allEmails.forEach(email => {
+                if (ignoreEmail && email.toLowerCase() === ignoreEmail) {
+                    ignoredEmails.push(email);
+                } else {
+                    emails.push(email);
+                }
+            });
+
+            // Remove duplicates from valid emails
+            emails = [...new Set(emails)];
+
+            copiedEmails.clear();
+            renderEmails();
+            updateStats();
+            stats.classList.remove('hidden');
+        }
+
+        function renderEmails() {
+            emailList.innerHTML = '';
+            
+            emails.forEach((email, index) => {
+                const isCopied = copiedEmails.has(email);
+                const emailDiv = document.createElement('div');
+                emailDiv.className = `flex items-center justify-between p-3 border rounded-md transition-all ${
+                    isCopied 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-white border-gray-200 hover:border-gray-300'
+                }`;
+                
+                emailDiv.innerHTML = `
+                    <div class="flex items-center flex-1">
+                        <span class="text-sm ${isCopied ? 'text-green-700' : 'text-gray-700'} font-mono">
+                            ${email}
+                        </span>
+                        ${isCopied ? '<span class="ml-2 text-green-600">✓</span>' : ''}
+                    </div>
+                    <button 
+                        class="copy-btn ml-3 px-3 py-1 text-xs rounded transition-colors ${
+                            isCopied 
+                                ? 'bg-green-100 text-green-700 cursor-default' 
+                                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }"
+                        data-email="${email}"
+                        ${isCopied ? 'disabled' : ''}
+                    >
+                        ${isCopied ? 'Copied' : 'Copy'}
+                    </button>
+                `;
+                
+                emailList.appendChild(emailDiv);
+            });
+
+            // Add event listeners to copy buttons
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', copyEmail);
+            });
+        }
+
+        async function copyEmail(event) {
+            const email = event.target.dataset.email;
+            
+            try {
+                await navigator.clipboard.writeText(email);
+                copiedEmails.add(email);
+                
+                // Add animation
+                event.target.closest('div').classList.add('copied');
+                setTimeout(() => {
+                    event.target.closest('div').classList.remove('copied');
+                }, 500);
+                
+                renderEmails();
+                updateStats();
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = email;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                copiedEmails.add(email);
+                renderEmails();
+                updateStats();
+            }
+        }
+
+        async function copyAllRemaining() {
+            const remaining = emails.filter(email => !copiedEmails.has(email));
+            if (remaining.length === 0) {
+                return;
+            }
+
+            const allEmails = remaining.join(', ');
+            
+            try {
+                await navigator.clipboard.writeText(allEmails);
+                remaining.forEach(email => copiedEmails.add(email));
+                renderEmails();
+                updateStats();
+            } catch (err) {
+                // Silent fail
+            }
+        }
+
+        function resetAll() {
+            copiedEmails.clear();
+            renderEmails();
+            updateStats();
+        }
+
+        function updateStats() {
+            const total = emails.length;
+            const copied = copiedEmails.size;
+            const remaining = total - copied;
+            const ignored = ignoredEmails.length;
+
+            totalCount.textContent = total;
+            copiedCount.textContent = copied;
+            remainingCount.textContent = remaining;
+            ignoredCount.textContent = ignored;
+        }
+
+        // Event listeners
+        processBtn.addEventListener('click', processEmails);
+        copyAllBtn.addEventListener('click', copyAllRemaining);
+        resetBtn.addEventListener('click', resetAll);
+
+        // Process on Enter key
+        emailInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                processEmails();
+            }
+        });
+
+        // Auto-focus input
+        emailInput.focus();
+    </script>
+</body>
+</html>
