@@ -43,7 +43,7 @@ Now with this tool, my workflow is:
 ## 🚀 How to Use
 
 ### Step 1: Open the Tool
-- Save the \`email-copy-tool-with-ignore.html\` file to your computer
+- Save the \`index.html\` file to your computer
 - Double-click to open it in your web browser
 - Bookmark the page for quick access
 
